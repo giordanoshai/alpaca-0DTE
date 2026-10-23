@@ -1,0 +1,38 @@
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 本地 MCP 客户端配置（含明文密钥/Token，禁止入库）
+.codex/
+
+# 本地临时
+.scratch/
+*.log
+log/*.jsonl
+.worktrees/
+
+# 运行时态（模板配置持久化，占位；未来接 Supabase）
+data/
+app/core/.cache/
+
+# pytest 临时目录（Windows 下偶发残留在仓库根，且无读权限）
+pytest-of-*/
+
+# 标注页是脚本生成的大文件(3MB+)，同一 seed 随时可重跑，不入库
+docs/labeling/*.html

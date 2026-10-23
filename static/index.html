@@ -1,0 +1,634 @@
+<!-- 由 .scratch/build_static.py 从设计稿生成，勿手改；改设计请改设计稿后重跑 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0DTE 交易终端</title>
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="icon" href="/static/icon.svg">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="/static/app.css?v=20260730-hotkeys-v8">
+
+<!-- 缩放宿主：真实画布挂在这里 -->
+<div id="stage"></div>
+
+<!-- 设计稿模板原样保留（sc-if / sc-for / {{}} 由 app.js 的运行时解释） -->
+<template id="app-tpl">
+<div class="theme-dark" style="width:100%;height:100%;position:relative;background:#0f172a;color:#e6ecf3;font-family:var(--font-sans);overflow:hidden;font-size:14px">
+
+<sc-if value="{{ isTrade }}" hint-placeholder-val="{{ true }}">
+<div style="height:100%;display:flex;flex-direction:column">
+
+  <sc-if value="{{ heartbeatLost }}" hint-placeholder-val="">
+  <div style="flex:0 0 auto;height:42px;display:flex;align-items:center;justify-content:center;gap:12px;animation:bpulse 1.4s ease-in-out infinite;color:#f0b4ad;font-weight:600;font-size:14px;border-bottom:1px solid #6e2620">
+    <i class="bi bi-exclamation-octagon-fill" style="font-size:16px"></i>与服务器失联，请立即人工检查券商持仓 · 失联期间已禁止一切下单
+  </div>
+  </sc-if>
+
+  <!-- TOP BAR -->
+  <div style="flex:0 0 auto;height:56px;display:flex;align-items:center;gap:16px;padding:0 20px;background:#131d2e;border-bottom:1px solid #22314a">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px"><i class="bi bi-shield-lock-fill"></i></span>
+      <span style="font-weight:700;font-size:16px;letter-spacing:.01em">0DTE 交易终端</span>
+      <span style="font:600 11px var(--font-mono);color:#8695ab;padding-top:2px">RULE&#8209;LOCKED</span>
+    </div>
+    <span style="display:inline-flex;align-items:center;gap:6px;font:700 12px var(--font-mono);letter-spacing:.06em;padding:5px 11px;border-radius:6px;background:{{ mode.bg }};color:{{ mode.fg }};border:1px solid {{ mode.border }}"><i class="bi bi-circle-fill" style="font-size:7px"></i>{{ mode.label }}</span>
+
+    <!-- UW 0DTE 资金潮徽章（纯展示，不接任何交易闸门，见 market_tide_service.py）。
+         值经 /ws 的 tide section 下发，由 app.js refreshTide() 定点更新——顶栏不在
+         任何 data-render-region 内，软渲染够不着，硬渲染又会重建整棵 DOM。 -->
+    <span id="header-tide" title="UW 0DTE 净权利金流向：主动买 call 减主动买 put。纯展示，不参与任何交易闸门"
+          style="display:inline-flex;flex-direction:column;justify-content:center;gap:1px;padding-left:14px;border-left:1px solid #22314a;opacity:{{ tide.opacity }}">
+      <span style="font:600 9px var(--font-mono);color:#8695ab;letter-spacing:.08em">{{ tide.label }}</span>
+      <span style="display:inline-flex;align-items:baseline;gap:5px">
+        <span id="header-tide-value" style="font:700 13px var(--font-mono);color:{{ tide.color }}">{{ tide.text }}</span>
+        <span id="header-tide-note" style="font:500 9px var(--font-mono);color:#6b7a90">{{ tide.note }}</span>
+      </span>
+    </span>
+
+    <div style="margin-left:auto;display:flex;align-items:center;gap:18px">
+      <span id="header-session" title="美股交易时段。休市时行情循环挂起，卡片停在收盘时的值" style="display:{{ session.display }};align-items:center;gap:7px;font:500 12px var(--font-mono);color:#8695ab">
+        <i class="bi bi-moon-stars" style="color:#6b7a90"></i><span id="header-session-label">{{ session.label }}</span>
+      </span>
+      <span id="header-heartbeat" title="浏览器 ↔ 本机后端" style="display:inline-flex;align-items:center;gap:7px;font:500 12px var(--font-mono);color:{{ hb.color }}">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ hb.color }};animation:{{ hb.anim }}"></span><span id="header-heartbeat-label">{{ hb.label }}</span>
+      </span>
+      <span id="header-alpaca-pong" title="本机后端 ↔ Alpaca TradingStream" style="display:inline-flex;align-items:center;gap:7px;font:500 12px var(--font-mono);color:{{ alpacaPong.color }}">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ alpacaPong.color }};animation:{{ alpacaPong.anim }}"></span><span id="header-alpaca-pong-label">{{ alpacaPong.label }}</span>
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:7px;font:500 13px var(--font-mono);color:#c3cee0"><i class="bi bi-clock" style="color:#8695ab"></i>北京 {{ clock }}</span>
+      <button onClick="{{ gotoSettings }}" title="设置" style="width:34px;height:34px;border-radius:7px;background:transparent;border:1px solid #22314a;color:#8695ab;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:16px"><i class="bi bi-gear"></i></button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div style="flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;padding:14px 18px">
+
+    <!-- 区1 信号状态 -->
+    <div data-render-region="tickers" style="flex:0 0 auto">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">
+        <span style="font:600 12px var(--font-sans);color:#8695ab;letter-spacing:.04em">信号状态</span>
+        <span style="font:500 11px var(--font-mono);color:#5a6a82">标的 {{ tickerCount }} · 敲字母搜索 · 点击卡片或滚轮切换焦点</span>
+      </div>
+      <div id="scroll-tickers" onWheel="{{ onSignalWheel }}" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px">
+        <sc-for list="{{ tickers }}" as="t" hint-placeholder-count="7">
+          <!-- height 是 border-box（app.css 全局 *{box-sizing:border-box}），内容区 =
+               172 − padding 22 − border 4 = 146px。overflow:hidden 是兜底：reason 罕见地
+               换到三行时宁可截掉，也不要画到隔壁卡片上。
+               2026-08-17：高度维持 172px 不变（原高度够用）；「禁止/可买入」不再单占
+               一整行，挪到 ticker 代码后面同一行内联展示，腾出的整行位置换成 Net GEX /
+               Gamma Flip，行距统一收到 margin-top:6px（比原 3px 宽松、比中途试过的
+               8px 紧凑，凑够高度不变时的空间）。 -->
+          <div onClick="{{ t.onSelect }}" data-tsym="{{ t.sym }}" style="flex:0 0 auto;width:236px;height:172px;background:#172236;border:2px solid {{ t.border }};border-radius:9px;padding:11px 13px;display:flex;flex-direction:column;cursor:pointer;position:relative;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="display:flex;align-items:baseline;gap:7px;min-width:0">
+                <span style="font-size:18px;font-weight:700;letter-spacing:.02em;flex:0 0 auto">{{ t.sym }}</span>
+                <span style="font:600 12px var(--font-mono);color:#8695ab;flex:0 0 auto">{{ t.priceText }}</span>
+                <span style="width:9px;height:9px;border-radius:50%;background:{{ t.light }};box-shadow:{{ t.glow }};flex:0 0 auto;align-self:center"></span>
+                <span style="font-size:12px;font-weight:600;color:{{ t.light }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.lightLabel }}</span>
+              </div>
+            </div>
+            <!-- ±GEX 标签 + Gamma Flip 价位。
+                 标签 2026-08-21 曾删除（当时拿现价跟 flip 比大小推符号，判定证伪），
+                 2026-08-25 查明那次是**口径错配**后恢复 —— 现在的正负号直读后端下发的
+                 net_gex（spot-exposures 的 dir 口径真值），不再从价位推。
+                 详见 tests/test_frontend_no_derived_net_gex.py 的实测表。
+                 flip 价位本身一直是 UW 真实数据，当普通参考线显示。 -->
+            <sc-if value="{{ t.hasGex }}" hint-placeholder-val="">
+              <div style="display:flex;align-items:center;gap:6px;font:500 11px/1.5 var(--font-mono);margin-top:6px">
+                <span style="flex:0 0 auto;font:600 9px var(--font-sans);color:#5a6a82;background:#0f172a;border:1px solid #22314a;border-radius:4px;padding:1px 5px">GEX</span>
+                <span style="color:{{ t.netGexColor }};font-weight:700;flex:0 0 auto"
+                      title="做市商净 Gamma 的正负（UW spot-exposures 的主动成交方向口径）。−GEX = 做市商放大波动，实测 1.46 倍 —— 但不指方向，不等于可以追。">{{ t.netGexLabel }}</span>
+                <span style="color:{{ t.gexColor }};min-width:0">Flip {{ t.gammaFlipPx }}</span>
+              </div>
+            </sc-if>
+            <!-- 闸组 B 市场状态：只剩距 VWAP。
+                 「效率比」那一格与卡片右上角的「上涨/下跌/震荡」标签于 2026-09-01
+                 随震荡闸、方向闸一并撤掉 —— 它们原本是闸门判据的镜像，闸门没了
+                 再显示就成了「系统建议」，而方向现在完全由用户自己在下单面板上选。 -->
+            <div style="display:flex;align-items:flex-start;gap:6px;font:500 11px/1.5 var(--font-mono);margin-top:6px">
+              <span style="flex:0 0 auto;font:600 9px var(--font-sans);color:#5a6a82;background:#0f172a;border:1px solid #22314a;border-radius:4px;padding:1px 5px">市场</span>
+              <span style="color:#8695ab;min-width:0">VWAP <span title="距 VWAP 的 σ 倍数；纯参考，不拦单。开盘初期极端值封顶显示" style="color:{{ t.vwapColor }}">{{ t.vwap }}×σ</span></span>
+            </div>
+            <!-- 距墙（UW gex-levels，30s 一轮；纯展示，不进任何闸门）
+                 CALL / PUT 各占一行：并排一行时 236px 卡片放不下会横向溢出。 -->
+            <sc-if value="{{ t.hasWall }}" hint-placeholder-val="">
+              <div style="display:flex;align-items:flex-start;gap:6px;font:500 11px/1.35 var(--font-mono);margin-top:6px">
+                <span style="flex:0 0 auto;margin-top:1px;font:600 9px var(--font-sans);color:#5a6a82;background:#0f172a;border:1px solid #22314a;border-radius:4px;padding:1px 5px">墙</span>
+                <span style="flex:1;min-width:0;display:grid;grid-template-columns:auto auto 1fr;column-gap:6px;color:{{ t.wallColor }}">
+                  <span style="color:#5a6a82">CALL</span><span style="text-align:right">{{ t.wallCallPx }}</span><span style="text-align:right">{{ t.wallCallPct }}</span>
+                  <span style="color:#5a6a82">PUT</span><span style="text-align:right">{{ t.wallPutPx }}</span><span style="text-align:right">{{ t.wallPutPct }}</span>
+                </span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ t.reason }}" hint-placeholder-val="">
+              <div style="margin-top:auto;font:500 10.5px var(--font-sans);color:#8f9bad;background:rgba(134,149,171,.07);border:1px solid #273348;border-radius:5px;padding:3px 8px;line-height:1.35">{{ t.reason }}</div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- 主交易区：左右分栏 -->
+    <div style="flex:1;min-height:0;display:grid;grid-template-columns:1fr 560px;gap:12px">
+      <!-- 左侧：下单 + 持仓 -->
+      <div style="display:flex;flex-direction:column;gap:12px;min-height:0">
+        <!-- 区2 下单 -->
+    <div data-render-region="order-entry" style="flex:0 0 auto;position:relative;background:#172236;border:1px solid #22314a;border-radius:9px;padding:15px 18px;display:flex;align-items:center;gap:24px;opacity:{{ order.opacity }}">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;align-items:center;gap:11px">
+          <span style="font-size:21px;font-weight:700">{{ focusT.sym }}</span>
+          <span style="font:500 12px var(--font-mono);color:#5a6a82;margin-left:4px">CALL / PUT 各自选约 · 方向由你决定</span>
+        </div>
+        <!-- CALL & PUT 侧并列 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;background:rgba(15,23,42,.35);padding:8px 12px;border-radius:6px;border:1px solid rgba(34,49,74,.5)">
+          <!-- CALL 侧 -->
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="flex:0 0 34px;font:700 11px var(--font-sans);color:#7fb79f;letter-spacing:.04em">CALL</span>
+              <span style="font:600 14px var(--font-mono);color:#e6ecf3;letter-spacing:.01em">{{ order.callContract }} <span style="color:#8695ab;font-weight:400">· delta {{ order.callDelta }} · spread {{ order.callSpread }}</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;padding-left:42px;font:500 12px var(--font-mono);color:#8695ab">
+              <span>bid <b style="color:#c3cee0;font-weight:600">{{ order.callBid }}</b></span>
+              <span>mid <b style="color:#e6ecf3;font-weight:700">{{ order.callMid }}</b></span>
+              <span>ask <b style="color:#c3cee0;font-weight:600">{{ order.callAsk }}</b></span>
+            </div>
+          </div>
+          <!-- PUT 侧 -->
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span style="flex:0 0 34px;font:700 11px var(--font-sans);color:#d08a82;letter-spacing:.04em">PUT</span>
+              <span style="font:600 14px var(--font-mono);color:#e6ecf3;letter-spacing:.01em">{{ order.putContract }} <span style="color:#8695ab;font-weight:400">· delta {{ order.putDelta }} · spread {{ order.putSpread }}</span></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;padding-left:42px;font:500 12px var(--font-mono);color:#8695ab">
+              <span>bid <b style="color:#c3cee0;font-weight:600">{{ order.putBid }}</b></span>
+              <span>mid <b style="color:#e6ecf3;font-weight:700">{{ order.putMid }}</b></span>
+              <span>ask <b style="color:#c3cee0;font-weight:600">{{ order.putAsk }}</b></span>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ order.pending }}" hint-placeholder-val="">
+          <div style="display:inline-flex;align-items:center;gap:9px;align-self:flex-start;margin-top:2px;font:500 12px var(--font-mono);color:#c19a56;background:rgba(194,161,86,.1);border:1px solid #4d4320;border-radius:6px;padding:5px 10px"><span style="width:12px;height:12px;border:2px solid currentColor;border-bottom-color:transparent;border-radius:50%;display:inline-block;animation:spin .9s linear infinite"></span>在途单 {{ order.pendingText }} · 按 Esc 撤单</div>
+        </sc-if>
+      </div>
+
+      <div style="flex:0 0 auto;display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;align-items:flex-start;gap:24px">
+          <div style="display:flex;flex-direction:column;gap:9px;flex:0 0 auto">
+            <!-- ⑥ 数量（可输入+常用数量） -->
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+              <span style="font:600 11px var(--font-sans);color:#8695ab;width:30px">数量</span>
+              <sc-for list="{{ qtyPresets }}" as="q" hint-placeholder-count="4">
+                <button onClick="{{ q.onPick }}" style="min-width:30px;height:28px;padding:0 8px;border-radius:6px;font:600 12px var(--font-mono);cursor:pointer;background:{{ q.bg }};border:1px solid {{ q.border }};color:{{ q.fg }}">{{ q.n }}</button>
+              </sc-for>
+              <input value="{{ qtyValue }}" onWheel="{{ onQtyWheel }}" onChange="{{ onQtyInput }}" data-fkey="qty" inputmode="numeric" aria-label="买入张数" title="可直接输入或滚轮调整；未聚焦输入框时按数字键也可设置" style="width:52px;height:28px;padding:0 8px;border-radius:6px;border:1px solid #2a3852;background:#0f172a;color:#e6ecf3;font:600 12px var(--font-mono);text-align:center">
+              <span style="width:1px;height:20px;background:#2a3852;margin:0 3px"></span>
+              <sc-for list="{{ stopModes }}" as="m" hint-placeholder-count="2">
+                <button onClick="{{ m.onPick }}" style="height:28px;min-width:66px;padding:0 8px;border-radius:6px;font:600 10.5px var(--font-sans);cursor:pointer;background:{{ m.bg }};border:1px solid {{ m.border }};color:{{ m.fg }}">{{ m.label }}</button>
+              </sc-for>
+            </div>
+            <!-- ⑩ 价格类型（自动/限价/买一/卖一/市价）。自动=开仓挂卖一、平仓挂买一，都取可成交那一侧 -->
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+              <span style="font:600 11px var(--font-sans);color:#8695ab;width:30px">价格</span>
+              <sc-for list="{{ priceTypes }}" as="p" hint-placeholder-count="5">
+                <button onClick="{{ p.onPick }}" style="height:28px;padding:0 10px;border-radius:6px;font:600 12px var(--font-sans);cursor:pointer;background:{{ p.bg }};border:1px solid {{ p.border }};color:{{ p.fg }}">{{ p.label }}</button>
+              </sc-for>
+              <sc-if value="{{ showLimitInput }}" hint-placeholder-val="">
+                <input value="{{ limitValue }}" onChange="{{ onLimitInput }}" data-fkey="limit" inputmode="decimal" placeholder="限价" style="width:70px;height:28px;padding:0 8px;border-radius:6px;border:1px solid #4d4320;background:#0f172a;color:#e6ecf3;font:600 12px var(--font-mono);text-align:center">
+              </sc-if>
+            </div>
+          </div>
+          <!-- CALL / PUT 两个按钮并排（2026-09-01 恢复）。
+               2026-08-21 到 2026-09-01 之间这里只有一个按钮，因为当时规则 6 方向闸
+               保证两侧最多一边能过、方向由后端给。那条闸删掉之后前提没了：系统不再
+               判方向，买哪一边由用户自己决定，所以按钮必须是两个。
+               各自的灰/亮仍然只认后端对该方向干跑闸门的结果，前端不做二次推断。 -->
+          <div style="display:flex;flex:0 0 290px;gap:8px">
+            <button onClick="{{ order.onBuyCall }}" style="flex:1;min-width:0;height:52px;border-radius:8px;cursor:{{ order.callBtnCursor }};background:{{ order.callBtnBg }};border:1px solid {{ order.callBtnBorder }};color:{{ order.callBtnFg }};display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:14px;font-weight:700"><i class="bi {{ order.callBtnIcon }}" style="{{ order.buyBtnIconStyle }}"></i>{{ order.callBtnLabel }} <kbd style="font-size:10.5px;background:rgba(0,0,0,.25);border-radius:4px;padding:1px 5px">{{ order.callBtnKbd }}</kbd></span>
+              <span style="font:700 11px var(--font-mono);color:#f0c674;letter-spacing:.01em">{{ order.qty }}张 = {{ order.callAmount }}</span>
+            </button>
+            <button onClick="{{ order.onBuyPut }}" style="flex:1;min-width:0;height:52px;border-radius:8px;cursor:{{ order.putBtnCursor }};background:{{ order.putBtnBg }};border:1px solid {{ order.putBtnBorder }};color:{{ order.putBtnFg }};display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;gap:5px;font-size:14px;font-weight:700"><i class="bi {{ order.putBtnIcon }}" style="{{ order.buyBtnIconStyle }}"></i>{{ order.putBtnLabel }} <kbd style="font-size:10.5px;background:rgba(0,0,0,.25);border-radius:4px;padding:1px 5px">{{ order.putBtnKbd }}</kbd></span>
+              <span style="font:700 11px var(--font-mono);color:#f0c674;letter-spacing:.01em">{{ order.qty }}张 = {{ order.putAmount }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ order.showBreaker }}" hint-placeholder-val="">
+        <div style="position:absolute;inset:0;border-radius:9px;background:rgba(15,23,42,.82);backdrop-filter:blur(2px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+          <span style="font-size:20px;font-weight:700;color:#e0776c"><i class="bi bi-hand-thumbs-down" style="margin-right:8px"></i>今日熔断 &minus;$150，明天见</span>
+          <span style="font:500 12px var(--font-sans);color:#8695ab">下单已锁定 · 仅保留持仓与平仓功能</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ order.showReconcile }}" hint-placeholder-val="">
+        <div style="position:absolute;inset:0;border-radius:9px;background:rgba(15,23,42,.8);display:flex;align-items:center;justify-content:center;gap:11px;color:#c3cee0;font-weight:600;font-size:15px"><span style="width:16px;height:16px;border:2px solid currentColor;border-bottom-color:transparent;border-radius:50%;display:inline-block;animation:spin .9s linear infinite"></span>正在与券商对账…</div>
+      </sc-if>
+    </div>
+
+        <!-- 区3 持仓 -->
+        <div data-render-region="positions" style="flex:1;min-height:0;background:#172236;border:1px solid #22314a;border-radius:9px;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #22314a">
+        <div style="display:flex;align-items:baseline;gap:10px"><span style="font-weight:600;font-size:14px">持仓总览</span><span style="font:500 12px var(--font-mono);color:#5a6a82">({{ posCount }}) · ↑↓ 选择</span></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font:500 11px var(--font-mono);color:#5a6a82"><i class="bi bi-eye-slash" style="margin-right:5px"></i>盈亏默认隐藏 · Alt+P 切换（连今日盈亏）</span>
+          <button onClick="{{ reveal }}" style="font:500 11px var(--font-sans);padding:5px 9px;border-radius:6px;background:transparent;border:1px solid #2a3852;color:#8695ab;cursor:pointer">{{ revealBtnLabel }}</button>
+          <button onClick="{{ reconcile.onClick }}" style="font:600 11px var(--font-sans);padding:5px 10px;border-radius:6px;background:transparent;border:1px solid #2a3852;color:#8695ab;cursor:pointer;display:inline-flex;align-items:center;gap:5px"><i class="bi {{ reconcile.icon }}" style="{{ reconcile.iconStyle }}"></i>{{ reconcile.label }}</button>
+          <button onClick="{{ closeAll }}" style="font:600 11px var(--font-sans);padding:5px 10px;border-radius:6px;background:transparent;border:1px solid #5c2620;color:#d08a82;cursor:pointer">全部持仓全平</button>
+        </div>
+      </div>
+      <sc-if value="{{ hasUnmanaged }}" hint-placeholder-val="">
+        <div style="flex:0 0 auto;padding:8px 16px;background:rgba(201,169,62,.1);border-bottom:1px solid #4d4320;font:500 11.5px var(--font-mono);color:#d8bd6f">
+          <i class="bi bi-exclamation-triangle" style="margin-right:6px"></i>券商账户里有 {{ unmanagedCount }} 笔本系统未登记的期权仓（{{ unmanagedSummary }}）——点「对账」找回，否则 watchdog 不会保护它们
+        </div>
+      </sc-if>
+      <div id="scroll-positions" style="flex:1;min-height:0;overflow:auto">
+        <sc-if value="{{ posEmpty }}" hint-placeholder-val="">
+          <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#5a6a82"><i class="bi bi-moon-stars" style="font-size:34px;opacity:.6"></i><span style="font-size:14px;color:#8695ab">当前无持仓</span><span style="font:500 12px var(--font-mono)">按规则等待信号，不必强行入场</span></div>
+        </sc-if>
+        <sc-for list="{{ positions }}" as="p" hint-placeholder-count="3">
+          <div class="position-row" onClick="{{ p.onSelect }}" style="border-left-color:{{ p.borderColor }};background:{{ p.rowBg }}">
+            <div class="position-summary">
+              <div class="position-contract">
+                <div><span class="position-contract-name">{{ p.contract }}</span><span class="position-type" style="background:{{ p.typeBg }};color:{{ p.typeFg }}">{{ p.type }}</span></div>
+              </div>
+
+              <div class="position-metric"><span class="position-label">数量</span><strong class="position-value position-positive">+{{ p.qty }}张</strong></div>
+              <div class="position-metric" title="按当前买一价（实际可卖出价）"><span class="position-label">当前买价</span><strong class="position-value">{{ p.marketPriceText }}</strong></div>
+              <div class="position-metric"><span class="position-label">止损价 <span class="position-stop-mode" title="{{ p.stopModeTitle }}">{{ p.stopModeBadge }}</span></span><strong class="position-value">{{ p.stopPriceText }}</strong></div>
+              <div class="position-metric"><span class="position-label">持仓</span><strong class="position-value" data-hold-start="{{ p.holdStart }}" data-hold-max="{{ p.holdMax }}">{{ p.holdText }}</strong><span class="position-sub">{{ p.holdSubText }}</span></div>
+              <div class="position-metric"><span class="position-label">成本价</span><strong class="position-value">{{ p.costText }}</strong><span class="position-sub">{{ p.costSubText }}</span></div>
+              <div class="position-metric"><span class="position-label">PNL</span><strong class="position-value" style="color:{{ p.pnlColor }}">{{ p.pnlMainText }}</strong><span class="position-sub">{{ p.pnlSubText }}</span></div>
+              <div class="position-metric position-working">
+                <span class="position-label">挂单</span>
+                <strong class="position-working-value" style="color:{{ p.workingColor }}">{{ p.workingText }}</strong>
+                <sc-if value="{{ p.resting }}" hint-placeholder-val="">
+                  <button class="position-cancel" onClick="{{ p.onCancelClose }}" disabled="{{ p.cancelBusy }}">{{ p.cancelLabel }}</button>
+                </sc-if>
+              </div>
+            </div>
+
+            <div class="position-actions">
+              <div class="position-actions-line">
+              <div class="position-control position-price-picker" style="z-index:{{ p.pricePickerZ }}">
+                <span class="position-label">卖价</span>
+                <button class="position-price-trigger" onClick="{{ p.onPriceMenuToggle }}">{{ p.priceMenuLabel }}<i class="bi bi-chevron-down"></i></button>
+                <sc-if value="{{ p.priceMenuOpen }}" hint-placeholder-val="">
+                  <div class="position-price-menu">
+                    <sc-for list="{{ p.priceOptions }}" as="priceOption" hint-placeholder-count="6">
+                      <button onClick="{{ priceOption.onPick }}" style="background:{{ priceOption.bg }};color:{{ priceOption.color }};border-color:{{ priceOption.border }}">{{ priceOption.label }}</button>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+              <div class="position-control">
+                <span class="position-label">目标收益</span>
+                <div class="position-percent" style="opacity:{{ p.targetOpacity }};pointer-events:{{ p.targetPointer }}">
+                  <input value="{{ p.targetInput }}" disabled="{{ p.targetDisabled }}" inputmode="decimal" data-replace-whole-on-type="true" title="点击或聚焦后直接输入会覆盖当前数字；每格滚动 5%" aria-label="目标收益百分比" onWheel="{{ p.onTargetWheel }}" onInput="{{ p.onTargetInput }}" onChange="{{ p.onTargetChange }}" onKeydown="{{ p.onTargetKeyDown }}" onClick="{{ p.onControlClick }}">
+                  <span>%</span>
+                </div>
+              </div>
+              <div class="position-control position-target">
+                <span class="position-label">当前卖价</span>
+                <strong data-role="sell-price">{{ p.targetPriceText }}</strong>
+              </div>
+              <div class="position-control">
+                <span class="position-label">数量</span>
+                <div class="position-stepper">
+                  <input type="number" min="1" max="{{ p.qty }}" value="{{ p.sellQty }}" title="滚轮调整或直接输入；最大 {{ p.qty }} 张" aria-label="卖出张数，最大 {{ p.qty }} 张" onWheel="{{ p.onSellQtyWheel }}" onChange="{{ p.onSellQtyChange }}" onClick="{{ p.onControlClick }}">
+                </div>
+              </div>
+              <div class="position-action-buttons">
+                <button class="position-sell" title="{{ p.sellTitle }}" onClick="{{ p.onSell }}" style="opacity:{{ p.tradeActionOpacity }};pointer-events:{{ p.tradeActionPointer }}"><span>卖出</span><kbd>{{ p.hotkeys.sell }}</kbd></button>
+                <div class="position-quick" title="固定按买一价（Bid）快速卖出，受短超时自动撤单限制" style="opacity:{{ p.tradeActionOpacity }};pointer-events:{{ p.tradeActionPointer }}">
+                  <button onClick="{{ p.onThird }}"><span>1/3</span><kbd>{{ p.hotkeys.third }}</kbd></button>
+                  <button onClick="{{ p.onHalve }}"><span>半仓</span><kbd>{{ p.hotkeys.half }}</kbd></button>
+                  <button onClick="{{ p.onClose }}"><span>全平</span><kbd>{{ p.hotkeys.close }}</kbd></button>
+                </div>
+                <span class="position-actions-divider" aria-hidden="true"></span>
+                <div class="position-add" style="opacity:{{ p.tradeActionOpacity }};pointer-events:{{ p.tradeActionPointer }}">
+                  <input type="number" min="1" value="{{ p.addQty }}" onWheel="{{ p.onAddQtyWheel }}" onChange="{{ p.onAddQtyChange }}" onClick="{{ p.onControlClick }}">
+                  <button onClick="{{ p.onAddPos }}"><span>加仓</span><kbd>{{ p.hotkeys.add }}</kbd></button>
+                </div>
+              </div>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+      </div> <!-- 左侧结束 -->
+      
+      <!-- 订单流面板 -->
+      <div data-render-region="orders" style="min-height:0;background:#172236;border:1px solid #22314a;border-radius:9px;display:flex;flex-direction:column;overflow:hidden">
+      <div style="flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid #22314a">
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font-weight:600;font-size:14px">订单</span><span style="font:500 11px var(--font-mono);color:#5a6a82">近48h · 在途不限</span></div>
+        <span style="font:500 11px var(--font-mono);color:#5a6a82">待 {{ orderFlow.nPending }} · 成 {{ orderFlow.nFilled }} · 撤 {{ orderFlow.nCancelled }}</span>
+      </div>
+      <div id="scroll-orders" style="flex:1;min-height:0;overflow-y:auto;padding:9px 11px;display:flex;flex-direction:column;gap:13px">
+        <sc-if value="{{ orderFlow.empty }}" hint-placeholder-val="">
+          <div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#5a6a82"><i class="bi bi-inbox" style="font-size:28px;opacity:.6"></i><span style="font:500 12px var(--font-sans)">暂无近期订单</span></div>
+        </sc-if>
+        <sc-if value="{{ orderFlow.hasPending }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="font:600 11px var(--font-sans);color:#c2a15a;letter-spacing:.04em;margin-bottom:7px">待成交 {{ orderFlow.nPending }}</div>
+          <sc-for list="{{ orderFlow.pending }}" as="o" hint-placeholder-count="2">
+            <div onClick="{{ o.onSelect }}" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;background:{{ o.rowBg }};border:1px solid {{ o.rowBorder }};margin-bottom:7px;cursor:pointer">
+              <span style="width:8px;height:8px;border-radius:50%;background:#c2a15a;flex:0 0 auto;animation:hbpulse 1.2s ease-in-out infinite"></span>
+              <div style="display:flex;align-items:baseline;gap:4px">
+                <span style="font:700 12.5px var(--font-mono);color:#e6ecf3">{{ o.sym }}</span>
+                <span style="font:700 11.5px var(--font-mono);color:{{ o.typeColor }}">{{ o.typeText }}</span>
+              </div>
+              <span style="font:600 10px var(--font-sans);padding:1px 7px;border-radius:999px;background:{{ o.sideBg }};color:{{ o.sideFg }}">{{ o.sideLabel }}</span>
+              <span style="font:500 11px var(--font-mono);color:#8695ab">×{{ o.qty }}</span>
+              <span style="font:600 10.5px var(--font-mono);color:#c2a15a">{{ o.orderPriceText }}</span>
+              <span style="font:600 10.5px var(--font-mono);color:#c3cee0">{{ o.notionalText }}</span>
+              <sc-if value="{{ o.reasonTag }}" hint-placeholder-val="">
+                <span style="font:600 10px var(--font-sans);padding:1px 7px;border-radius:999px;background:{{ o.reasonTag.bg }};color:{{ o.reasonTag.fg }}">{{ o.reasonTag.label }}</span>
+              </sc-if>
+              <button onClick="{{ o.onCancel }}" disabled="{{ o.cancelBusy }}" style="margin-left:auto;font:600 10.5px var(--font-sans);padding:3px 10px;border-radius:6px;background:transparent;border:1px solid #5c2620;color:#d08a82;cursor:{{ o.cancelCursor }}">{{ o.cancelLabel }}</button>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+        <sc-if value="{{ orderFlow.hasFilled }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="font:600 11px var(--font-sans);color:#7fb79f;letter-spacing:.04em;margin-bottom:7px">已成交 {{ orderFlow.nFilled }}</div>
+          <div class="order-filled-grid order-filled-head">
+            <span>标的</span><span>ACTION</span><span>挂价</span><span>价类</span><span>成价</span><span>总额</span><span>间隙</span><span>时间</span><span>原因</span>
+          </div>
+          <sc-for list="{{ orderFlow.filled }}" as="o" hint-placeholder-count="3">
+            <div class="order-filled-grid order-filled-row">
+              <span class="order-filled-cell" title="{{ o.targetText }}" style="color:{{ o.typeColor }}">{{ o.targetText }}</span>
+              <span class="order-filled-cell" title="{{ o.actionLabel }}" style="color:{{ o.actionColor }}">{{ o.actionLabel }}</span>
+              <span class="order-filled-cell" title="{{ o.orderPriceValue }}">{{ o.orderPriceValue }}</span>
+              <span class="order-filled-cell" title="{{ o.priceTypeLabel }}" style="color:#8695ab">{{ o.priceTypeLabel }}</span>
+              <span class="order-filled-cell" title="{{ o.fillPriceValue }}" style="color:#7fb79f">{{ o.fillPriceValue }}</span>
+              <span class="order-filled-cell" title="{{ o.notionalText }}">{{ o.notionalText }}</span>
+              <span class="order-filled-cell" title="{{ o.latencyText }}" style="color:#85a9cf">{{ o.latencyText }}</span>
+              <span class="order-filled-cell" title="{{ o.timeText }}" style="color:#5a6a82">{{ o.timeText }}</span>
+              <span class="order-filled-cell" title="{{ o.reasonText }}" style="font-family:var(--font-sans);color:#8695ab">{{ o.reasonText }}</span>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+        <sc-if value="{{ orderFlow.hasCancelled }}" hint-placeholder-val="">
+        <div>
+          <div style="font:600 11px var(--font-sans);color:#8695ab;letter-spacing:.04em;margin-bottom:7px">已取消 {{ orderFlow.nCancelled }}</div>
+          <sc-for list="{{ orderFlow.cancelled }}" as="o" hint-placeholder-count="1">
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #1c2740;opacity:.6">
+              <div style="display:flex;align-items:baseline;gap:4px">
+                <span style="font:700 12.5px var(--font-mono);color:#8695ab;text-decoration:line-through">{{ o.sym }}</span>
+                <span style="font:700 11.5px var(--font-mono);color:{{ o.typeColor }};text-decoration:line-through">{{ o.typeText }}</span>
+              </div>
+              <span style="font:600 10px var(--font-sans);padding:1px 7px;border-radius:999px;background:{{ o.sideBg }};color:{{ o.sideFg }}">{{ o.sideLabel }}</span>
+              <span style="font:500 11px var(--font-mono);color:#8695ab">×{{ o.qty }}</span>
+              <span style="font:500 10.5px var(--font-mono);color:#8695ab;white-space:nowrap">{{ o.cancelPriceText }}</span>
+              <sc-if value="{{ o.reasonTag }}" hint-placeholder-val="">
+                <span style="font:600 10px var(--font-sans);padding:1px 7px;border-radius:999px;background:{{ o.reasonTag.bg }};color:{{ o.reasonTag.fg }}">{{ o.reasonTag.label }}</span>
+              </sc-if>
+              <span class="order-cancel-reason" title="{{ o.failReason }}" style="font:500 10.5px var(--font-sans);color:#c2a15a">{{ o.cancelReasonText }}</span>
+              <span style="margin-left:auto;font:500 10.5px var(--font-mono);color:#5a6a82">{{ o.timeText }}</span>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+    </div>
+
+    <!-- 区4 风控（⑨ 可视化：止盈/止损双线 · 今日交易次数 · 周亏） -->
+    <div data-render-region="risk" style="flex:0 0 auto;position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
+
+      <div style="background:{{ risk.tradesBg }};border:1px solid {{ risk.tradesBorder }};border-radius:9px;padding:12px 15px;display:flex;flex-direction:column;gap:7px">
+        <span style="font:500 11px var(--font-sans);color:#8695ab">今日交易次数</span>
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font:700 22px var(--font-mono);color:{{ risk.tradesColor }}">{{ risk.tradesText }}</span><span style="font:500 12px var(--font-mono);color:#5a6a82">/ {{ risk.tradesMax }} 上限</span></div>
+        <span style="height:6px;border-radius:3px;background:#22314a;overflow:hidden;display:block"><span style="display:block;height:100%;width:{{ risk.tradesW }};background:{{ risk.tradesColor }};border-radius:3px"></span></span>
+      </div>
+      <div style="background:{{ risk.streakBg }};border:1px solid {{ risk.streakBorder }};border-radius:9px;padding:12px 15px;display:flex;flex-direction:column;gap:7px">
+        <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;font:500 11px var(--font-sans);color:#8695ab"><span>连亏计数</span><span style="font:600 9px var(--font-sans);color:#7fb79f;background:rgba(95,158,131,.1);border:1px solid #315946;border-radius:999px;padding:2px 6px;white-space:nowrap">真实 · 风控口径</span></span>
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font:700 22px var(--font-mono);color:{{ risk.streakColor }}">{{ risk.streak }}</span><span style="font:500 12px var(--font-mono);color:#8695ab">/ 2 触发冷却</span></div>
+        <span style="font:600 12px var(--font-mono);color:{{ risk.streakColor }}">{{ risk.cooldownText }}</span>
+      </div>
+      <div style="background:#172236;border:1px solid #22314a;border-radius:9px;padding:12px 15px;display:flex;flex-direction:column;gap:7px">
+        <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;font:500 11px var(--font-sans);color:#8695ab"><span>当前持仓资金</span><span style="font:600 9px var(--font-sans);color:#7fb79f;background:rgba(95,158,131,.1);border:1px solid #315946;border-radius:999px;padding:2px 6px;white-space:nowrap">真实 · 入场成本</span></span>
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font:700 22px var(--font-mono);color:#c3cee0">{{ risk.positionCapitalText }}</span><span style="font:500 12px var(--font-mono);color:#5a6a82">成本合计</span></div>
+        <span style="font:500 11px var(--font-mono);color:{{ risk.positionStatusColor }}">{{ risk.positionStatus }}</span>
+      </div>
+      <div style="background:#172236;border:1px solid #22314a;border-radius:9px;padding:12px 15px;display:flex;flex-direction:column;gap:7px">
+        <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;font:500 11px var(--font-sans);color:#8695ab"><span>今日本程序盈亏 / 止盈·止损</span><span style="font:600 9px var(--font-sans);color:#7fb79f;background:rgba(95,158,131,.1);border:1px solid #315946;border-radius:999px;padding:2px 6px;white-space:nowrap">Alpaca · 本程序成交</span></span>
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font:700 22px var(--font-mono);color:{{ risk.pnlColor }}">{{ risk.pnlText }}</span><span style="font:500 11px var(--font-mono);color:#5a6a82">止盈 {{ risk.tpLine }} · 止损 {{ risk.slLine }}</span></div>
+        <span style="height:6px;border-radius:3px;background:#22314a;overflow:hidden;display:block"><span style="display:block;height:100%;width:{{ risk.breakerW }};background:{{ risk.breakerColor }};border-radius:3px"></span></span>
+      </div>
+      <div style="background:#172236;border:1px solid #22314a;border-radius:9px;padding:12px 15px;display:flex;flex-direction:column;gap:7px">
+        <span style="display:flex;align-items:center;justify-content:space-between;gap:8px;font:500 11px var(--font-sans);color:#8695ab"><span>本周本程序盈亏 / 周亏线</span><span style="font:600 9px var(--font-sans);color:#7fb79f;background:rgba(95,158,131,.1);border:1px solid #315946;border-radius:999px;padding:2px 6px;white-space:nowrap">Alpaca · 本程序成交</span></span>
+        <div style="display:flex;align-items:baseline;gap:8px"><span style="font:700 22px var(--font-mono);color:{{ risk.weekColor }}">{{ risk.weekPnlText }}</span><span style="font:500 12px var(--font-mono);color:#5a6a82">周亏线 {{ risk.weekLine }}</span></div>
+        <span style="height:6px;border-radius:3px;background:#22314a;overflow:hidden;display:block"><span style="display:block;height:100%;width:{{ risk.weekW }};background:{{ risk.weekColor }};border-radius:3px"></span></span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="flex:0 0 auto;height:40px;display:flex;align-items:center;gap:20px;padding:0 20px;background:#131d2e;border-top:1px solid #22314a">
+    <sc-for list="{{ footerKeys }}" as="k" hint-placeholder-count="8">
+      <span style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--font-sans);color:#8695ab"><kbd style="font-size:10.5px;background:#0f172a;border:1px solid #2a3852;border-radius:4px;padding:2px 7px;color:#c3cee0">{{ k.0 }}</kbd>{{ k.1 }}</span>
+    </sc-for>
+  </div>
+
+  <!-- 下单自查（2026-09-01）：三个都拨到「否」才放行提交，否则提交按钮保持灰色。
+       提示行**故意全是静态文字** —— 震荡 / 均线共振 / MACD 动能 / 追高四条自动闸
+       同日删除时，|4in1| 分数、效率比、5 分钟 MACD 柱、EMA 方向的计算代码是一起
+       删掉的；硬凑几个数字上去只会让人以为系统还在替他判断。
+       只在开仓时出现；平仓 / 止损 / 加仓 / 撤单不走这里。
+       挂在交易页根节点下、**不在任何 data-render-region 里** —— 软渲染够不着它，
+       而 selfCheck 的每次变化都是整树硬渲染，够用。 -->
+  <sc-if value="{{ selfCheck.open }}" hint-placeholder-val="">
+  <div style="position:absolute;inset:0;z-index:80;background:rgba(9,14,26,.74);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center">
+    <div style="width:560px;max-width:calc(100% - 40px);background:#172236;border:1px solid #2a3852;border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.55);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid #22314a">
+        <i class="bi bi-clipboard-check" style="font-size:15px;color:#818cf8"></i>
+        <span style="font-weight:700;font-size:14.5px">下单自查</span>
+        <span style="font:600 12px var(--font-mono);color:#8695ab">{{ selfCheck.title }}</span>
+        <span style="margin-left:auto;font:800 20px var(--font-sans);color:#fbbf24;letter-spacing:2px;text-shadow:0 0 18px rgba(251,191,36,.35)">慢一点，不要急</span>
+      </div>
+      <div style="padding:4px 18px 15px">
+        <sc-for list="{{ selfCheck.items }}" as="c" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #1b2740">
+            <span style="flex:0 0 auto;width:3px;align-self:stretch;border-radius:2px;background:{{ c.barColor }}"></span>
+            <span style="flex:0 0 auto;width:20px;height:20px;border-radius:5px;background:#0f172a;border:1px solid #2a3852;color:#8695ab;font:700 11px var(--font-mono);display:inline-flex;align-items:center;justify-content:center">{{ c.n }}</span>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+              <span style="display:flex;align-items:center;gap:7px"><span style="font-weight:600;font-size:13.5px;color:#e6ecf3">{{ c.q }}</span><span style="display:{{ c.mustDisplay }};align-items:center;height:17px;padding:0 6px;border-radius:4px;background:rgba(239,68,68,.16);border:1px solid rgba(239,68,68,.42);color:#f87171;font:700 10px var(--font-sans);letter-spacing:.3px">{{ c.mustText }}</span></span>
+              <span style="font:600 11.5px var(--font-sans);color:#f87171;line-height:1.5">{{ c.hint }}</span>
+            </div>
+            <button onClick="{{ c.onToggle }}" style="flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 6px 0 12px;border-radius:999px;cursor:pointer;background:{{ c.bg }};border:1px solid {{ c.border }};color:{{ c.fg }};font:700 12px var(--font-sans)">{{ c.state }}<span style="position:relative;width:42px;height:20px;border-radius:999px;background:#0f172a;border:1px solid {{ c.border }};display:inline-block"><span style="position:absolute;top:1px;left:{{ c.knobX }};width:16px;height:16px;border-radius:50%;background:{{ c.knobBg }}"></span></span></button>
+          </div>
+        </sc-for>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:15px">
+          <span style="font:600 11.5px var(--font-sans);color:{{ selfCheck.okNoteColor }}">{{ selfCheck.okNote }}</span>
+          <div style="display:flex;gap:8px">
+            <button onClick="{{ selfCheck.onCancel }}" style="height:34px;padding:0 14px;border-radius:7px;background:transparent;border:1px solid #2a3852;color:#94a3b8;font:600 12px var(--font-sans);cursor:pointer">取消 <kbd style="font-size:10px;background:rgba(0,0,0,.25);border-radius:4px;padding:1px 5px;margin-left:3px">Esc</kbd></button>
+            <button onClick="{{ selfCheck.onOk }}" style="height:34px;padding:0 16px;border-radius:7px;background:{{ selfCheck.okBg }};border:1px solid {{ selfCheck.okBorder }};color:{{ selfCheck.okFg }};font:700 12px var(--font-sans);cursor:{{ selfCheck.okCursor }}">提交 <kbd style="font-size:10px;background:rgba(0,0,0,.25);border-radius:4px;padding:1px 5px;margin-left:3px">Space</kbd></button>
+          </div>
+        </div>
+        <div style="padding-top:11px;font:500 11px var(--font-sans);color:#5a6a82">按 1 / 2 / 3 拨对应开关 · 每次开仓都从「是」重新拨起，不记上一次 · 第 1 / 3 条只记录不拦单，留给复盘回头看</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<!-- ================= SETTINGS PAGE ================= -->
+<sc-if value="{{ isSettings }}" hint-placeholder-val="">
+<div data-render-region="settings" style="height:100%;display:flex;flex-direction:column;background:#0f172a">
+  <div style="flex:0 0 auto;height:56px;display:flex;align-items:center;gap:16px;padding:0 20px;background:#131d2e;border-bottom:1px solid #22314a">
+    <button onClick="{{ gotoTrade }}" style="display:inline-flex;align-items:center;gap:7px;font:500 13px var(--font-sans);padding:7px 13px;border-radius:7px;background:transparent;border:1px solid #2a3852;color:#c3cee0;cursor:pointer"><i class="bi bi-arrow-left"></i>返回交易面板</button>
+    <span style="font-weight:700;font-size:16px">设置</span>
+    <span style="font:500 12px var(--font-mono);color:#5a6a82">一条数据库记录就是一份完整配置 · 保存后在下方列表加载</span>
+  </div>
+
+  <div id="scroll-settings" style="flex:1;min-height:0;overflow-y:auto;padding:20px 28px">
+    <div style="max-width:1160px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
+
+      <!-- 当前加载配置：用户点击加载后，输入框和这里的名称一起更新 -->
+      <div style="display:flex;align-items:center;gap:13px;padding:14px 17px;border-radius:10px;background:linear-gradient(90deg,rgba(99,102,241,.12),rgba(23,34,54,.95));border:1px solid #353b79">
+        <span style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:rgba(99,102,241,.16);color:#a5b0fb"><i class="bi bi-file-earmark-slides"></i></span>
+        <div style="min-width:0">
+          <div style="font:500 11px var(--font-sans);color:#8695ab;margin-bottom:2px">当前加载配置</div>
+          <div style="font:700 15px var(--font-sans);color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ loadedTemplate }}</div>
+        </div>
+        <span style="margin-left:auto">
+          <sc-if value="{{ loadedActive }}" hint-placeholder-val="{{ true }}"><span style="font:600 11px var(--font-sans);padding:3px 9px;border-radius:999px;background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.2)">生效中</span></sc-if>
+          <sc-if value="{{ loadedPending }}" hint-placeholder-val=""><span style="font:600 11px var(--font-sans);padding:3px 9px;border-radius:999px;background:rgba(194,161,86,.12);color:#d8bd6f;border:1px solid rgba(194,161,86,.25)">已加载 · 待生效</span></sc-if>
+        </span>
+      </div>
+
+      <!-- 风控参数区：三列卡（设计稿 .scratch/settings.html 移植；标签在上、输入框全宽） -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px">
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+          <div style="background:#172236;border:1px solid #22314a;border-radius:12px;padding:20px">
+            <div style="display:flex;align-items:center;gap:9px;font:500 17px var(--font-sans);color:#f1f5f9;margin-bottom:16px"><i class="bi {{ g.icon }}" style="color:{{ g.iconColor }};font-size:18px"></i>{{ g.title }}</div>
+            <div style="display:flex;flex-direction:column;gap:15px">
+              <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+                <div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                    <label style="font:500 13px var(--font-sans);color:#cbd5e1">{{ it.labelFull }}</label>
+                    <sc-if value="{{ it.field.pending }}" hint-placeholder-val=""><span style="font:600 10px var(--font-sans);padding:1px 7px;border-radius:999px;background:rgba(194,161,86,.15);color:#d8bd6f;border:1px solid #4d4320">待生效</span></sc-if>
+                  </div>
+                  <sc-if value="{{ it.field.options }}" hint-placeholder-val="">
+                  <!-- 选中态必须走 select 的 value 绑定（app.js 的 deferredSelectValue：
+                       options 建完后再 el.value=…）。**不能在 option 上写 selected="{{ o.selected }}"**：
+                       模板引擎对非 disabled 属性一律 setAttribute，而 selected 是 HTML 布尔属性，
+                       写成 selected="false" 照样生效 → 五个 option 全被标选中、单选取最后一个，
+                       结果恒显「极宽松」。 -->
+                  <select value="{{ it.field.value }}" onChange="{{ it.field.onChange }}" data-fkey="{{ it.field.key }}" disabled="{{ readonly }}" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid {{ it.field.border }};background:#0f172a;color:#e2e8f0;font:500 13.5px var(--font-mono);padding:8px 12px;opacity:{{ it.field.opacity }}">
+                    <sc-for list="{{ it.field.options }}" as="o" hint-placeholder-count="5">
+                      <option value="{{ o.value }}">{{ o.text }}</option>
+                    </sc-for>
+                  </select>
+                  </sc-if>
+                  <sc-if value="{{ it.field.noOptions }}" hint-placeholder-val="">
+                  <input value="{{ it.field.value }}" onChange="{{ it.field.onChange }}" onInput="{{ it.field.onInput }}" data-fkey="{{ it.field.key }}" disabled="{{ readonly }}" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid {{ it.field.border }};background:#0f172a;color:#e2e8f0;font:500 13.5px var(--font-mono);padding:8px 12px;opacity:{{ it.field.opacity }}">
+                  </sc-if>
+                  <div style="margin-top:4px;font:500 11px var(--font-sans);color:#5a6a82">{{ it.hint }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- 申请参数修改（A⑤ 票池管理卡已移除：票池真源在盯盘 watcher watch_list） -->
+      <div style="background:#172236;border:1px solid #22314a;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:9px;font:500 17px var(--font-sans);color:#f1f5f9"><i class="bi bi-pencil-square" style="color:#94a3b8;font-size:18px"></i>申请参数修改</div>
+        <div style="font:400 13px var(--font-sans);color:#94a3b8">保存后会在 ttt_template_store 新增一行完整配置，不会自动加载。名称和修改理由必填。</div>
+        <div style="display:grid;grid-template-columns:minmax(240px,.7fr) minmax(360px,1.3fr);gap:14px">
+          <div>
+            <label style="display:block;font:500 13px var(--font-sans);color:#cbd5e1;margin-bottom:5px">配置名称 <span style="color:#d08a82">*必填</span></label>
+            <input value="{{ configName.value }}" onChange="{{ configName.onChange }}" onInput="{{ configName.onInput }}" data-fkey="config-name" maxlength="80" disabled="{{ readonly }}" placeholder="例如：盘前保守版 2026-07-26" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:6px;border:1px solid #22314a;background:#0f172a;color:#e2e8f0;font:500 13px var(--font-sans);opacity:{{ configName.opacity }}">
+          </div>
+          <div>
+          <label style="display:block;font:500 13px var(--font-sans);color:#cbd5e1;margin-bottom:5px">修改理由 <span style="color:#d08a82">*必填</span></label>
+            <input value="{{ reason.value }}" onChange="{{ reason.onChange }}" onInput="{{ reason.onInput }}" data-fkey="reason" disabled="{{ readonly }}" placeholder="例如：昨日追高频繁，收紧阈值…" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:6px;border:1px solid #22314a;background:#0f172a;color:#e2e8f0;font:400 13px var(--font-sans);opacity:{{ reason.opacity }}">
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:14px">
+          <span id="save-hint" style="font:500 11.5px var(--font-mono);color:{{ save.hintColor }}">{{ save.hint }}</span>
+          <button id="btn-save-settings" onClick="{{ save.onSave }}" disabled="{{ readonly }}" style="height:40px;padding:0 22px;border-radius:6px;font-weight:600;font-size:14px;cursor:{{ save.cursor }};background:{{ save.bg }};border:1px solid {{ save.border }};color:{{ save.fg }};display:inline-flex;align-items:center;gap:8px"><i class="bi bi-save"></i>保存配置</button>
+        </div>
+      </div>
+
+      <!-- 配置列表：每项对应 ttt_template_store 的一行 -->
+      <div style="background:#172236;border:1px solid #22314a;border-radius:12px;overflow:hidden">
+        <div style="padding:15px 20px;border-bottom:1px solid #22314a;display:flex;align-items:center;justify-content:space-between;gap:16px">
+          <span style="font:500 17px var(--font-sans);color:#f1f5f9">配置变更历史 <span style="font:400 12px var(--font-mono);color:#5a6a82;margin-left:4px">加载或删除配置</span></span>
+          <span style="font:500 12px var(--font-mono);color:#8695ab"><sc-if value="{{ marketLocked }}" hint-placeholder-val=""><b style="color:#d8bd6f;margin-right:12px">{{ marketLockNotice }}</b></sc-if>实际生效 <b style="color:#818cf8">{{ activeTemplate }}</b><sc-if value="{{ hasPendingTemplate }}" hint-placeholder-val=""> · 待生效 <b style="color:#d8bd6f">{{ pendingTemplate }}</b></sc-if></span>
+        </div>
+        <div style="display:grid;grid-template-columns:150px minmax(240px,1fr) 210px 120px 82px 142px;gap:14px;padding:10px 20px;background:rgba(15,23,42,.5);font:500 12px var(--font-sans);color:#94a3b8;border-bottom:1px solid #22314a">
+          <span>配置名称</span><span>参数摘要</span><span>修改理由</span><span>更新时间</span><span style="text-align:right">状态</span><span style="text-align:right">操作</span>
+        </div>
+        <sc-for list="{{ configs }}" as="v" hint-placeholder-count="3">
+          <div style="display:grid;grid-template-columns:150px minmax(240px,1fr) 210px 120px 82px 142px;gap:14px;align-items:center;padding:13px 20px;border-bottom:1px solid #1c2740">
+            <span title="{{ v.name }}" style="font:700 12.5px var(--font-sans);color:#a5b0fb;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.name }}</span>
+            <span style="font:500 12px var(--font-mono);color:#cbd5e1">{{ v.summary }}</span>
+            <span style="font:400 12.5px var(--font-sans);color:#8695ab;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ v.reason }}</span>
+            <span style="font:500 11.5px var(--font-mono);color:#5a6a82">{{ v.time }}</span>
+            <span style="display:flex;justify-content:flex-end">
+              <sc-if value="{{ v.pending }}" hint-placeholder-val=""><span style="font:600 11px var(--font-sans);padding:2px 8px;border-radius:6px;background:rgba(194,161,86,.12);color:#d8bd6f;border:1px solid rgba(194,161,86,.25)">待生效</span></sc-if>
+              <sc-if value="{{ v.active }}" hint-placeholder-val=""><span style="font:600 11px var(--font-sans);padding:2px 8px;border-radius:6px;background:rgba(74,222,128,.1);color:#4ade80;border:1px solid rgba(74,222,128,.2)">生效中</span></sc-if>
+              <sc-if value="{{ v.saved }}" hint-placeholder-val="{{ true }}"><span style="font:600 11px var(--font-sans);padding:2px 8px;border-radius:6px;background:rgba(129,140,248,.1);color:#a5b0fb;border:1px solid rgba(129,140,248,.2)">已保存</span></sc-if>
+            </span>
+            <span style="display:flex;justify-content:flex-end;gap:7px">
+              <sc-if value="{{ v.canLoad }}" hint-placeholder-val=""><button onClick="{{ v.onLoad }}" disabled="{{ v.loadDisabled }}" title="{{ v.loadTitle }}" style="height:28px;padding:0 11px;border-radius:6px;font:600 11px var(--font-sans);cursor:{{ v.loadCursor }};opacity:{{ v.loadOpacity }};background:rgba(99,102,241,.14);border:1px solid #4649c4;color:#a5b0fb"><i class="bi bi-download" style="margin-right:4px"></i>加载</button></sc-if>
+              <sc-if value="{{ v.canDelete }}" hint-placeholder-val=""><button onClick="{{ v.onDelete }}" title="删除配置" style="width:30px;height:28px;border-radius:6px;font-size:12px;cursor:pointer;background:rgba(193,104,95,.1);border:1px solid #663d43;color:#d08a82"><i class="bi bi-trash3"></i></button></sc-if>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- 系统参数：界面偏好 + 可编辑快捷键（与风控参数区分开） -->
+      <div style="background:#172236;border:1px solid #22314a;border-radius:12px;padding:20px;margin-bottom:8px">
+        <div style="font:500 17px var(--font-sans);color:#f1f5f9;border-bottom:1px solid #22314a;padding-bottom:14px;margin-bottom:18px"><i class="bi bi-sliders" style="color:#94a3b8;margin-right:9px"></i>系统参数 · 界面偏好与快捷键</div>
+        <div style="display:grid;grid-template-columns:minmax(260px,.75fr) minmax(540px,1.6fr);gap:32px">
+          <div>
+            <div style="font:500 14px var(--font-sans);color:#f1f5f9;margin-bottom:14px">界面偏好</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0"><span style="font:400 13px var(--font-sans);color:#cbd5e1">提示音（拦截 / 成交 / 止损与撤单 / 数字滚轮）</span><button onClick="{{ toggleSound }}" style="width:44px;height:24px;border-radius:999px;background:{{ soundBg }};border:1px solid {{ soundBorder }};cursor:pointer;position:relative;padding:0"><span style="position:absolute;top:2px;left:{{ soundKnob }};width:18px;height:18px;border-radius:50%;background:#e6ecf3;transition:left .18s ease"></span></button></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0"><span style="font:400 13px var(--font-sans);color:#cbd5e1">GEX 破墙提醒（涨破 call wall / 跌破 put wall，全池）· 2026-09-01 起默认关：两道墙在净 Gamma 正 / 负时语义不同，判据还没分开</span><button onClick="{{ toggleGexAlert }}" style="width:44px;height:24px;border-radius:999px;background:{{ gexAlertBg }};border:1px solid {{ gexAlertBorder }};cursor:pointer;position:relative;padding:0"><span style="position:absolute;top:2px;left:{{ gexAlertKnob }};width:18px;height:18px;border-radius:50%;background:#e6ecf3;transition:left .18s ease"></span></button></div>
+            <div style="margin-top:18px;padding:12px 14px;border:1px solid #22314a;border-radius:8px;background:#111b2c">
+              <div style="font:600 11px var(--font-sans);color:#8695ab;margin-bottom:9px">固定快捷键</div>
+              <sc-for list="{{ fixedHotkeys }}" as="h" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:10px;padding:5px 0"><kbd style="min-width:52px;text-align:center;font:600 10.5px var(--font-mono);background:#0f172a;border:1px solid #2a3852;border-radius:4px;padding:2px 6px;color:#cbd5e1">{{ h.key }}</kbd><span style="font:400 11.5px var(--font-sans);color:#8695ab">{{ h.act }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:14px">
+              <div>
+                <div style="font:500 14px var(--font-sans);color:#f1f5f9">交易快捷键设置</div>
+                <div style="font:400 11.5px var(--font-sans);color:#5a6a82;margin-top:4px">只填一个英文字母；实际按键均为 Alt + 该字母，字母不可重复，P 为盈亏显示保留键。</div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button onClick="{{ hotkeyReset }}" style="height:32px;padding:0 12px;border-radius:6px;background:transparent;border:1px solid #2a3852;color:#94a3b8;font:600 11px var(--font-sans);cursor:pointer">恢复默认</button>
+                <button id="btn-save-hotkeys" onClick="{{ hotkeySave }}" disabled="{{ hotkeySaveDisabled }}" style="height:32px;padding:0 14px;border-radius:6px;background:#6366f1;border:1px solid #6366f1;color:#fff;font:600 11px var(--font-sans);cursor:pointer;opacity:{{ hotkeySaveOpacity }}">保存快捷键</button>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:14px;row-gap:10px">
+              <sc-for list="{{ hotkeys }}" as="h" hint-placeholder-count="5">
+                <label style="height:38px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 11px;border:1px solid #22314a;border-radius:7px;background:#111b2c">
+                  <span style="font:500 12.5px var(--font-sans);color:#cbd5e1">{{ h.act }}</span>
+                  <span style="display:inline-flex;align-items:center;gap:5px;color:#5a6a82;font:600 11px var(--font-mono)">Alt + <input value="{{ h.value }}" maxlength="1" inputmode="text" autocomplete="off" aria-label="{{ h.act }}快捷键" onInput="{{ h.onInput }}" style="width:30px;height:26px;box-sizing:border-box;padding:0;border:1px solid #46556b;border-radius:5px;background:#0f172a;color:#e6ecf3;text-align:center;text-transform:uppercase;font:700 13px var(--font-mono)"></span>
+                </label>
+              </sc-for>
+            </div>
+            <div id="hotkey-save-hint" style="margin-top:11px;text-align:right;font:500 11.5px var(--font-sans);color:{{ hotkeyHintColor }}">{{ hotkeyHint }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</sc-if>
+</div>
+</template>
+
+<script type="module" src="/static/app.js?v=20260902-split"></script>

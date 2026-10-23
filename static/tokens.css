@@ -1,0 +1,78 @@
+/* ============================================================
+   Metis Trading Design System — Color & Type tokens
+   来源：Claude Design 项目 _ds/metis-trading-design-system
+   本地化：移除了本地 bootstrap-icons @font-face（图标由 CDN bootstrap-icons.min.css 提供）
+   ============================================================ */
+
+/* Inter / JetBrains Mono — Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ---------- Brand ---------- */
+  --brand-primary:        #6366f1;
+  --brand-primary-hover:  #4f46e5;
+  --brand-primary-soft:   #e0e7ff;
+  --brand-gradient:       linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --brand-violet:         #8b5cf6;
+
+  /* ---------- Semantic — Trading ---------- */
+  --color-long:           #10b981;
+  --color-short:          #ef4444;
+  --color-open:           #3b82f6;
+  --color-closed:         #6b7280;
+
+  /* ---------- Semantic — UI ---------- */
+  --color-success:        #10b981;
+  --color-warning:        #f59e0b;
+  --color-danger:         #ef4444;
+  --color-info:           #06b6d4;
+
+  /* ---------- Slate scale ---------- */
+  --slate-50:   #f8fafc;
+  --slate-100:  #f1f5f9;
+  --slate-200:  #e2e8f0;
+  --slate-300:  #cbd5e1;
+  --slate-400:  #94a3b8;
+  --slate-500:  #64748b;
+  --slate-600:  #475569;
+  --slate-700:  #334155;
+  --slate-800:  #1e293b;
+  --slate-900:  #0f172a;
+
+  /* ---------- Type ---------- */
+  --font-sans:  "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-icon:  "bootstrap-icons";
+
+  --fw-light:     300;
+  --fw-regular:   400;
+  --fw-medium:    500;
+  --fw-semibold:  600;
+  --fw-bold:      700;
+
+  /* ---------- Radius ---------- */
+  --radius-sm:  0.25rem;
+  --radius:     0.375rem;
+  --radius-lg:  0.5rem;
+  --radius-xl:  0.75rem;
+  --radius-pill: 999px;
+
+  /* ---------- Motion ---------- */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+/* ---------- Dark theme（应用默认）---------- */
+[data-bs-theme="dark"],
+.theme-dark {
+  --bg-page:        #0f172a;
+  --bg-surface:     #1e293b;
+  --bg-surface-2:   #334155;
+  --border:         #334155;
+  --border-subtle:  #1e293b;
+  --fg-1:           #f1f5f9;
+  --fg-2:           #94a3b8;
+  --fg-3:           #64748b;
+}

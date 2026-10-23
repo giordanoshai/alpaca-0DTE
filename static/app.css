@@ -1,0 +1,324 @@
+*{box-sizing:border-box}
+body{margin:0;background:#0f172a}
+kbd{font-family:var(--font-mono);font-weight:600}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#2a3852;border-radius:6px}
+::-webkit-scrollbar-track{background:transparent}
+input,button,textarea{font-family:inherit}
+a{color:#818cf8}a:hover{color:#a5b0fb}
+@keyframes hbpulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes bpulse{0%,100%{background:#3a1512}50%{background:#4d1a15}}
+@keyframes toastin{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toastout{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(8px) scale(.98)}}
+
+/* spin：设计稿在在途单/对账遮罩用到 animation:spin，但未在 <style> 里定义 */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes hotkeyFlash{
+  0%{box-shadow:0 0 0 0 rgba(99,102,241,.85),inset 0 0 16px rgba(99,102,241,.45);border-color:#818cf8}
+  50%{box-shadow:0 0 24px 6px rgba(99,102,241,.55),inset 0 0 24px rgba(99,102,241,.35);border-color:#6366f1}
+  100%{box-shadow:none}
+}
+.hotkey-flash{animation:hotkeyFlash .38s ease-out!important;border-radius:9px}
+
+/* 宿主页：流式满视口（A 模块②——已废弃固定 1920x1080 画布/等比缩放，改真·流式重排，消灭黑边） */
+html,body{height:100%;margin:0}
+body{background:#0f172a;overflow:hidden;position:relative}
+#stage{position:fixed;inset:0;width:100vw;height:100dvh}
+
+/* 隐藏 type="number" 输入框的上下微调箭头 (Spin Buttons) */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* 4K 单人交易台：持仓数据和全部操作固定为单排，窄窗口允许横向滚动。 */
+.position-row{
+  min-width:1900px;
+  display:flex;
+  align-items:stretch;
+  gap:13px;
+  padding:10px 14px 10px 11px;
+  border-bottom:1px solid #1c2740;
+  border-left:3px solid transparent;
+  cursor:pointer;
+  transition:background .14s ease;
+}
+.position-row:hover{background:rgba(99,102,241,.045)}
+.position-summary{
+  flex:0 0 1037px;
+  min-width:0;
+  display:grid;
+  grid-template-columns:190px 62px 90px 86px 96px 96px 136px 190px;
+  align-items:center;
+  gap:13px;
+}
+.position-contract,.position-metric,.position-control{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:4px;
+}
+.position-contract>div{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.position-contract-name{font:700 14px var(--font-mono);color:#e6ecf3}
+.position-type{
+  padding:2px 6px;
+  border-radius:5px;
+  font:700 9px var(--font-sans);
+  letter-spacing:.05em;
+}
+.position-label{
+  color:#6f7f96;
+  font:600 10px var(--font-sans);
+  letter-spacing:.025em;
+  white-space:nowrap;
+}
+.position-stop-mode{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:15px;
+  height:15px;
+  margin-left:3px;
+  border:1px solid #5c3d43;
+  border-radius:4px;
+  color:#d08a82;
+  font:700 8.5px var(--font-mono);
+  vertical-align:middle;
+}
+.position-value{color:#d8e0eb;font:650 14px var(--font-mono);white-space:nowrap}
+.position-sub{color:#8796ad;font:600 9.5px var(--font-mono);white-space:nowrap}
+.position-positive{color:#e6ecf3}
+.position-working{align-items:flex-start}
+.position-working-value{font:700 11.5px var(--font-mono);white-space:nowrap}
+.position-cancel{
+  height:20px;
+  min-width:48px;
+  padding:0 7px;
+  border:1px solid #6d5c31;
+  border-radius:5px;
+  background:transparent;
+  color:#d8bd6f;
+  font:600 9.5px var(--font-sans);
+  cursor:pointer;
+}
+.position-cancel:disabled{opacity:.58;cursor:wait}
+.position-actions{
+  flex:1 1 830px;
+  align-self:stretch;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  height:auto;
+}
+.position-actions-line{
+  flex:1 1 auto;
+  min-height:0;
+  display:flex;
+  align-items:stretch;
+  justify-content:flex-end;
+  gap:7px;
+}
+.position-action-buttons{
+  align-self:stretch;
+  height:auto;
+  padding:0;
+  display:flex;
+  align-items:stretch;
+  gap:6px;
+  border:0;
+  background:transparent;
+}
+.position-stepper{display:flex;height:32px}
+.position-stepper input{
+  width:48px;
+  height:32px;
+  padding:0;
+  border:1px solid #2a3852;
+  border-radius:6px;
+  background:#0f172a;
+  color:#d8e0eb;
+  text-align:center;
+  font:650 12px var(--font-mono);
+}
+.position-percent{
+  height:32px;
+  display:flex;
+  align-items:center;
+  border:1px solid #2a3852;
+  border-radius:6px;
+  background:#111827;
+  overflow:hidden;
+}
+.position-percent input{
+  width:54px;
+  height:30px;
+  padding:0 3px 0 8px;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:#c3cee0;
+  text-align:right;
+  font:650 12px var(--font-mono);
+}
+.position-percent span{
+  width:20px;
+  color:#718198;
+  font:650 11px var(--font-mono);
+}
+.position-price-picker{position:relative}
+.position-price-trigger{
+  height:32px;
+  min-width:96px;
+  padding:0 8px 0 10px;
+  border:1px solid #2a3852;
+  border-radius:6px;
+  background:#111b2c;
+  color:#c3cee0;
+  font:600 11px var(--font-sans);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+.position-price-trigger i{font-size:9px;color:#6f7f96}
+.position-price-menu{
+  position:absolute;
+  left:0;
+  top:calc(100% + 5px);
+  min-width:126px;
+  padding:5px;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  border:1px solid #2a3852;
+  border-radius:7px;
+  background:#0f172a;
+  box-shadow:0 12px 32px rgba(0,0,0,.5);
+  z-index:80;
+}
+.position-price-menu button{
+  width:100%;
+  height:28px;
+  padding:0 9px;
+  border:1px solid #22314a;
+  border-radius:5px;
+  text-align:left;
+  font:600 11px var(--font-sans);
+  cursor:pointer;
+}
+.position-price-menu button:hover{border-color:#465671!important;color:#e6ecf3!important}
+.position-target{min-width:68px;align-items:center}
+.position-target strong{height:32px;display:flex;align-items:center;color:#d8e0eb;font:700 13px var(--font-mono)}
+.position-sell,
+.position-quick button{
+  height:100%;
+  min-width:66px;
+  padding:0 14px;
+  border:1px solid #703e3d;
+  border-radius:6px;
+  background:#141b28;
+  color:#e6ecf3;
+  font:650 12px var(--font-sans);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.position-sell:hover,
+.position-quick button:hover{
+  border-color:#8b4a47;
+  background:#211a22;
+  color:#ffffff;
+}
+.position-quick{display:flex;align-self:stretch;height:auto;gap:6px}
+.position-actions-divider{
+  align-self:center;
+  width:1px;
+  height:28px;
+  margin:0 4px;
+  background:#2a3852;
+}
+.position-add{display:flex;align-self:stretch;height:auto;margin-left:0}
+.position-add input{
+  width:44px;
+  height:100%;
+  padding:0;
+  border:1px solid #355f4d;
+  border-right:0;
+  border-radius:6px 0 0 6px;
+  background:#111827;
+  color:#e6ecf3;
+  text-align:center;
+  font:650 12px var(--font-mono);
+}
+.position-add button{
+  min-width:66px;
+  height:100%;
+  padding:0 12px;
+  border:1px solid #355f4d;
+  border-radius:0 6px 6px 0;
+  background:#141b28;
+  color:#e6ecf3;
+  font:650 12px var(--font-sans);
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+.position-add button:hover{border-color:#477b65;background:#17221e;color:#ffffff}
+.position-action-buttons kbd{
+  min-width:17px;
+  padding:1px 4px;
+  border:1px solid rgba(134,149,171,.35);
+  border-radius:4px;
+  background:rgba(15,23,42,.72);
+  color:#94a3b8;
+  font:700 9.5px var(--font-mono);
+  line-height:14px;
+  text-align:center;
+}
+
+/* 已成交订单使用固定列列表；单元格省略只影响展示，title 保留完整内容。 */
+.order-filled-grid{
+  display:grid;
+  grid-template-columns:minmax(72px,1.2fr) 46px 45px 36px 45px 50px 42px 50px minmax(72px,1.25fr);
+  align-items:center;
+  column-gap:5px;
+}
+.order-filled-head{
+  padding:5px 8px;
+  border-top:1px solid #22314a;
+  border-bottom:1px solid #2a3852;
+  color:#6f7f96;
+  font:600 9px var(--font-sans);
+  letter-spacing:.03em;
+}
+.order-filled-row{
+  min-height:31px;
+  padding:6px 8px;
+  border-bottom:1px solid #1c2740;
+  color:#c3cee0;
+  font:600 9.5px var(--font-mono);
+}
+.order-filled-cell{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.order-cancel-reason{
+  flex:1 1 auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}

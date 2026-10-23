@@ -1,0 +1,15 @@
+[tool.pytest.ini_options]
+# Restrict test discovery paths to ensure clean execution and avoid foreign test discovery
+testpaths = ["tests"]
+
+
+[project]
+name = "alpaca-0dte"
+version = "0.1.0"
+description = "Disciplined 0DTE Options Trading & Execution Framework for Alpaca"
+readme = "README.md"
+license = { text = "PolyForm Noncommercial License 1.0.0" }
+requires-python = ">=3.12"
+dependencies = []
+
+
