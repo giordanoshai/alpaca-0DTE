@@ -60,6 +60,21 @@ flowchart TD
 
 ---
 
+## 🖥️ Terminal Showcase
+
+### Real-Time Trading & Surveillance Terminal
+![0DTE Real-Time Trading & Surveillance Terminal](.screenshots/Snipaste_2026-10-23_21-58-29.png)
+*Live 0DTE options execution terminal featuring real-time GEX Gamma Walls, 0DTE Market Tide sentiment, 4-in-1 multi-ticker surveillance, dynamic limit pricing, and active ladder exit controls.*
+
+<br>
+
+| 🛡️ Pre-Trade Sanity Check Funnel | ⚙️ Risk Gate & Strategy Configuration |
+| :---: | :---: |
+| ![Interactive Pre-Trade Sanity Check Funnel](.screenshots/Snipaste_2026-10-23_21-40-48.png) | ![Risk Gate & Parameter Configuration](.screenshots/Snipaste_2026-10-23_21-40-56.png) |
+| *Keyboard-driven modal forcing emotional reset, trend confirmation, and setup verification before order dispatch.* | *Rule-locked risk parameters: opening blackout windows, daily/weekly loss circuit breakers, and trailing exit rules.* |
+
+---
+
 ## Key Features
 
 ### 1. Millisecond 4-in-1 Market Surveillance
@@ -81,11 +96,9 @@ Mechanically block impulse, revenge, and FOMO entries before any order reaches t
 * **Resilient Connectivity**: Millisecond-level auto-reconnect and state recovery for market data and trading streams.
 
 ### 4. Interactive Pre-Trade Sanity Funnel
-A keyboard-driven modal prompts the trader to verify market structure (range-bound, breakout, or trend confluence) before execution, recording deliberate decision tags to PostgreSQL for post-session trade analysis.
+A keyboard-driven modal prompts the trader to verify market structure (range-bound, breakout, or trend confluence) before execution, recording deliberate decision tags to local SQLite database for post-session trade analysis.
 
 ---
-
-## Project Structure
 
 ## Supported Data Sources & Fallback Architecture
 

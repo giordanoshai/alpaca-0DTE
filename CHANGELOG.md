@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+### [2026-10-26] README 添加交易终端与风控界面截图展示
+* **新增 (Added)**: 
+  * 在 [`README.md`](file:///d:/Dev_project/Python_Project/alpaca-0DTE/README.md) 中新增 `🖥️ Terminal Showcase` 模块，集成 [`.screenshots`](file:///d:/Dev_project/Python_Project/alpaca-0DTE/.screenshots) 目录下的交易终端主界面、防冲动下单自查漏斗模态框及风控参数配置面板三张高分辨率实机截图。
+* **修改 (Changed)**: 
+  * 优化 [`README.md`](file:///d:/Dev_project/Python_Project/alpaca-0DTE/README.md) 章节流向，移除冗余的 `## Project Structure` 空标题，修正历史描述中关于 PostgreSQL 的残留引用为本地 SQLite 存储。
+
 ### [2026-10-23] 废弃云端 Supabase，全面重构为开箱即用本地 SQLite3 存储
 * **新增 (Added)**: 
   * 创建本地 SQLite3 引擎 [`app/db/sqlite_engine.py`](file:///d:/Dev_project/Python_Project/alpaca-0DTE/app/db/sqlite_engine.py)，支持全表自动幂等建表（`ttt_template_store`, `ttt_order_events`, `ttt_trades`, `ttt_intercept_log`, `user_watchlist`, `signals` 等）。
